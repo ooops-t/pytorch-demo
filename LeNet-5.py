@@ -48,7 +48,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 lenet = LeNet().to(device)
 print(summary(lenet, (1, 32, 32)))
 
-
+batch_size = 512
 # 加载 FashionMNIST 中的训练数据集
 train_data = FashionMNIST(
     root="./data",
@@ -56,11 +56,20 @@ train_data = FashionMNIST(
     transform=transforms.Compose([transforms.Resize(32), transforms.ToTensor()]),
     download=True,
 )
-data_loader = DataLoader(train_data, batch_size=512, shuffle=True, num_workers=4)
+train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4)
 
-# 查看第一批次中前5个数据
+# 加载测试数据集
+test_data = FashionMNIST(
+    root="./data",
+    train=False,
+    transform=transforms.Compose([transforms.Resize(32), transforms.ToTensor()]),
+    download=True,
+)
+test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=True, num_workers=4)
+
+# 查看训练集中第一批次前5个数据
 figure = plt.figure(figsize=(10, 5))
-for step, (x, y) in enumerate(data_loader):
+for step, (x, y) in enumerate(train_loader):
     for batch in range(5):
         img = x[batch, :, :].squeeze().numpy()
         label = train_data.classes[y[batch].numpy()]
@@ -84,7 +93,7 @@ for epoch in range(200):
     train_corrects = 0.0
     train_nums = 0
 
-    for step, (X, Y) in enumerate(data_loader):
+    for step, (X, Y) in enumerate(train_loader):
         X = X.to(device)
         Y = Y.to(device)
 
@@ -105,6 +114,27 @@ for epoch in range(200):
     train_losses_list.append(train_losses / train_nums)
     train_corrects_list.append(train_corrects / train_nums)
 
+# 模型测试
+lenet.eval()
+
+with torch.no_grad():
+    correct = 0
+    total = 0
+
+    for images, labels in test_loader:
+        images = images.to(device)
+        labels = labels.to(device)
+        
+        outputs = lenet(images)
+        _, predicted = torch.max(outputs.data, 1)
+        
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
+
+    accuracy = 100 * correct / total
+    print(f'Accuracy of the network on the 10000 test images: {accuracy:.2f} %')
+        
+    
 plt.plot(train_losses_list)
 plt.plot(train_corrects_list)
 plt.show()
